@@ -1,37 +1,10 @@
-/*
- * QR Code generator demo (Rust)
- *
- * Run this command-line program with no arguments. The program computes a bunch of demonstration
- * QR Codes and prints them to the console. Also, the SVG code for one QR Code is printed as a sample.
- *
- * Copyright (c) Project Nayuki. (MIT License)
- * https://www.nayuki.io/page/qr-code-generator-library
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- * - The above copyright notice and this permission notice shall be included in
- *   all copies or substantial portions of the Software.
- * - The Software is provided "as is", without warranty of any kind, express or
- *   implied, including but not limited to the warranties of merchantability,
- *   fitness for a particular purpose and noninfringement. In no event shall the
- *   authors or copyright holders be liable for any claim, damages or other
- *   liability, whether in an action of contract, tort or otherwise, arising from,
- *   out of or in connection with the Software or the use or other dealings in the
- *   Software.
- */
+//! QR Code generator demo (Rust).
+//!
+//! Run this command-line program with no arguments. The program computes a bunch of demonstration
+//! QR Codes and prints them to the console. Also, the SVG code for one QR Code is printed as a sample.
 
-extern crate qrcodegen;
-use qrcodegen::Mask;
-use qrcodegen::QrCode;
-use qrcodegen::QrCodeEcc;
-use qrcodegen::QrSegment;
-use qrcodegen::Version;
+use qrcodegen::prelude::*;
 
-// The main application program.
 fn main() {
     do_basic_demo();
     do_variety_demo();
@@ -41,7 +14,7 @@ fn main() {
 
 /*---- Demo suite ----*/
 
-// Creates a single QR Code, then prints it to the console.
+/// Creates a single QR Code, then prints it to the console.
 fn do_basic_demo() {
     let text: &'static str = "Hello, world!"; // User-supplied Unicode text
     let errcorlvl: QrCodeEcc = QrCodeEcc::Low; // Error correction level
@@ -52,7 +25,7 @@ fn do_basic_demo() {
     println!("{}", to_svg_string(&qr, 4));
 }
 
-// Creates a variety of QR Codes that exercise different features of the library, and prints each one to the console.
+/// Creates a variety of QR Codes that exercise different features of the library, and prints each one to the console.
 fn do_variety_demo() {
     // Numeric mode encoding (3.33 bits per digit)
     let qr = QrCode::encode_text("314159265358979323846264338327950288419716939937510", QrCodeEcc::Medium).unwrap();
@@ -87,7 +60,7 @@ fn do_variety_demo() {
     print_qr(&qr);
 }
 
-// Creates QR Codes with manually specified segments for better compactness.
+/// Creates QR Codes with manually specified segments for better compactness.
 fn do_segment_demo() {
     // Illustration "silver"
     let silver0 = "THE SQUARE ROOT OF 2 IS 1.";
@@ -126,16 +99,16 @@ fn do_segment_demo() {
         0x0144, 0x0001, 0x0000, 0x0249, 0x0240, 0x0249, 0x0000, 0x0104, 0x0105, 0x0113, 0x0115, 0x0000, 0x0208, 0x01FF,
         0x0008,
     ];
-    let mut bb = qrcodegen::BitBuffer(Vec::new());
+    let mut bb = BitBuffer(Vec::new());
     for &c in &kanjichars {
         bb.append_bits(c, 13);
     }
-    let segs = vec![QrSegment::new(qrcodegen::QrSegmentMode::Kanji, kanjichars.len(), bb.0)];
+    let segs = vec![QrSegment::new(QrSegmentMode::Kanji, kanjichars.len(), bb.0)];
     let qr = QrCode::encode_segments(&segs, QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 }
 
-// Creates QR Codes with the same size and contents but different mask patterns.
+/// Creates QR Codes with the same size and contents but different mask patterns.
 fn do_mask_demo() {
     // Project Nayuki URL
     let segs = QrSegment::make_segments("https://www.nayuki.io/");
@@ -200,9 +173,9 @@ fn do_mask_demo() {
 
 /*---- Utilities ----*/
 
-// Returns a string of SVG code for an image depicting
-// the given QR Code, with the given number of border modules.
-// The string always uses Unix newlines (\n), regardless of the platform.
+/// Returns a string of SVG code for an image depicting
+/// the given QR Code, with the given number of border modules.
+/// The string always uses Unix newlines (\n), regardless of the platform.
 fn to_svg_string(qr: &QrCode, border: i32) -> String {
     assert!(border >= 0, "Border must be non-negative");
     let mut result = String::new();
