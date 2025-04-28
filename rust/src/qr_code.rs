@@ -40,7 +40,7 @@ pub struct QrCode {
     size: i32,
 
     /// The error correction level used in this QR Code.
-    errorcorrectionlevel: QrCodeEcc,
+    error_correction_level: QrCodeEcc,
 
     /// The index of the mask pattern used in this QR Code, which is between 0 and 7 (inclusive).
     /// Even if a QR Code is created with automatic masking requested (mask = None),
@@ -53,7 +53,7 @@ pub struct QrCode {
     modules: Vec<bool>,
 
     /// Indicates function modules that are not subjected to masking. Discarded when constructor finishes.
-    isfunction: Vec<bool>,
+    is_function: Vec<bool>,
 }
 
 impl QrCode {
@@ -69,8 +69,8 @@ impl QrCode {
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
     pub fn encode_text(text: &str, ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
-        let segs: Vec<QrSegment> = QrSegment::make_segments(text);
-        QrCode::encode_segments(&segs, ecl)
+        let segments: Vec<QrSegment> = QrSegment::make_segments(text);
+        QrCode::encode_segments(&segments, ecl)
     }
 
     /// Returns a QR Code representing the given binary data at the given error correction level.
@@ -82,8 +82,8 @@ impl QrCode {
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
     pub fn encode_binary(data: &[u8], ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
-        let segs: [QrSegment; 1] = [QrSegment::make_bytes(data)];
-        QrCode::encode_segments(&segs, ecl)
+        let segments: [QrSegment; 1] = [QrSegment::make_bytes(data)];
+        QrCode::encode_segments(&segments, ecl)
     }
 
     /*---- Static factory functions (mid level) ----*/
@@ -99,8 +99,8 @@ impl QrCode {
     ///
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
-    pub fn encode_segments(segs: &[QrSegment], ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
-        QrCode::encode_segments_advanced(segs, ecl, Version::MIN, Version::MAX, None, true)
+    pub fn encode_segments(segments: &[QrSegment], ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
+        QrCode::encode_segments_advanced(segments, ecl, Version::MIN, Version::MAX, None, true)
     }
 
     /// Returns a QR Code representing the given segments with the given encoding parameters.
@@ -118,27 +118,27 @@ impl QrCode {
     /// Returns a wrapped `QrCode` if successful, or `Err` if the data is too
     /// long to fit in any version in the given range at the given ECC level.
     pub fn encode_segments_advanced(
-        segs: &[QrSegment],
+        segments: &[QrSegment],
         mut ecl: QrCodeEcc,
-        minversion: Version,
-        maxversion: Version,
+        min_version: Version,
+        max_version: Version,
         mask: Option<Mask>,
-        boostecl: bool,
+        boost_ecl: bool,
     ) -> Result<Self, DataTooLong> {
-        assert!(minversion <= maxversion, "Invalid value");
+        assert!(min_version <= max_version, "Invalid value");
 
         // Find the minimal version number to use
-        let mut version: Version = minversion;
-        let datausedbits: usize = loop {
-            let datacapacitybits: usize = QrCode::get_num_data_codewords(version, ecl) * 8; // Number of data bits available
-            let dataused: Option<usize> = QrSegment::get_total_bits(segs, version);
-            if dataused.map_or(false, |n| n <= datacapacitybits) {
-                break dataused.unwrap(); // This version number is found to be suitable
-            } else if version >= maxversion {
+        let mut version: Version = min_version;
+        let data_used_bits: usize = loop {
+            let data_capacity_bits: usize = QrCode::get_num_data_codewords(version, ecl) * 8; // Number of data bits available
+            let data_used: Option<usize> = QrSegment::get_total_bits(segments, version);
+            if data_used.map_or(false, |n| n <= data_capacity_bits) {
+                break data_used.unwrap(); // This version number is found to be suitable
+            } else if version >= max_version {
                 // All versions in the range could not fit the given data
-                return Err(match dataused {
+                return Err(match data_used {
                     None => DataTooLong::SegmentTooLong,
-                    Some(n) => DataTooLong::DataOverCapacity(n, datacapacitybits),
+                    Some(n) => DataTooLong::DataOverCapacity(n, data_capacity_bits),
                 });
             } else {
                 version = Version::new(version.value() + 1);
@@ -146,50 +146,50 @@ impl QrCode {
         };
 
         // Increase the error correction level while the data still fits in the current version number
-        for &newecl in &[QrCodeEcc::Medium, QrCodeEcc::Quartile, QrCodeEcc::High] {
+        for &new_ecl in &[QrCodeEcc::Medium, QrCodeEcc::Quartile, QrCodeEcc::High] {
             // From low to high
-            if boostecl && datausedbits <= QrCode::get_num_data_codewords(version, newecl) * 8 {
-                ecl = newecl;
+            if boost_ecl && data_used_bits <= QrCode::get_num_data_codewords(version, new_ecl) * 8 {
+                ecl = new_ecl;
             }
         }
 
         // Concatenate all segments to create the data bit string
         let mut bb = BitBuffer(Vec::new());
-        for seg in segs {
+        for seg in segments {
             bb.append_bits(seg.mode.mode_bits(), 4);
             bb.append_bits(
-                u32::try_from(seg.numchars).unwrap(),
+                u32::try_from(seg.num_chars).unwrap(),
                 seg.mode.num_char_count_bits(version),
             );
             bb.0.extend_from_slice(&seg.data);
         }
-        debug_assert_eq!(bb.0.len(), datausedbits);
+        debug_assert_eq!(bb.0.len(), data_used_bits);
 
         // Add terminator and pad up to a byte if applicable
-        let datacapacitybits: usize = QrCode::get_num_data_codewords(version, ecl) * 8;
-        debug_assert!(bb.0.len() <= datacapacitybits);
-        let numzerobits: usize = std::cmp::min(4, datacapacitybits - bb.0.len());
-        bb.append_bits(0, u8::try_from(numzerobits).unwrap());
-        let numzerobits: usize = bb.0.len().wrapping_neg() & 7;
-        bb.append_bits(0, u8::try_from(numzerobits).unwrap());
+        let data_capacity_bits: usize = QrCode::get_num_data_codewords(version, ecl) * 8;
+        debug_assert!(bb.0.len() <= data_capacity_bits);
+        let num_zero_bits: usize = std::cmp::min(4, data_capacity_bits - bb.0.len());
+        bb.append_bits(0, u8::try_from(num_zero_bits).unwrap());
+        let num_zero_bits: usize = bb.0.len().wrapping_neg() & 7;
+        bb.append_bits(0, u8::try_from(num_zero_bits).unwrap());
         debug_assert_eq!(bb.0.len() % 8, 0);
 
         // Pad with alternating bytes until data capacity is reached
-        for &padbyte in [0xEC, 0x11].iter().cycle() {
-            if bb.0.len() >= datacapacitybits {
+        for &pad_byte in [0xEC, 0x11].iter().cycle() {
+            if bb.0.len() >= data_capacity_bits {
                 break;
             }
-            bb.append_bits(padbyte, 8);
+            bb.append_bits(pad_byte, 8);
         }
 
         // Pack bits into bytes in big endian
-        let mut datacodewords = vec![0u8; bb.0.len() / 8];
+        let mut data_codewords = vec![0u8; bb.0.len() / 8];
         for (i, &bit) in bb.0.iter().enumerate() {
-            datacodewords[i >> 3] |= u8::from(bit) << (7 - (i & 7));
+            data_codewords[i >> 3] |= u8::from(bit) << (7 - (i & 7));
         }
 
         // Create the QR Code object
-        Ok(QrCode::encode_codewords(version, ecl, &datacodewords, mask))
+        Ok(QrCode::encode_codewords(version, ecl, &data_codewords, mask))
     }
 
     /*---- Constructor (low level) ----*/
@@ -199,35 +199,35 @@ impl QrCode {
     ///
     /// This is a low-level API that most users should not use directly.
     /// A mid-level API is the `encode_segments()` function.
-    pub fn encode_codewords(ver: Version, ecl: QrCodeEcc, datacodewords: &[u8], mut msk: Option<Mask>) -> Self {
+    pub fn encode_codewords(ver: Version, ecl: QrCodeEcc, data_codewords: &[u8], mut msk: Option<Mask>) -> Self {
         // Initialize fields
         let size = usize::from(ver.value()) * 4 + 17;
         let mut result = Self {
             version: ver,
             size: size as i32,
             mask: Mask::new(0), // Dummy value
-            errorcorrectionlevel: ecl,
+            error_correction_level: ecl,
             modules: vec![false; size * size], // Initially all light
-            isfunction: vec![false; size * size],
+            is_function: vec![false; size * size],
         };
 
         // Compute ECC, draw modules
         result.draw_function_patterns();
-        let allcodewords: Vec<u8> = result.add_ecc_and_interleave(datacodewords);
-        result.draw_codewords(&allcodewords);
+        let all_codewords: Vec<u8> = result.add_ecc_and_interleave(data_codewords);
+        result.draw_codewords(&all_codewords);
 
         // Do masking
         if msk.is_none() {
             // Automatically choose best mask
-            let mut minpenalty = std::i32::MAX;
+            let mut min_penalty = std::i32::MAX;
             for i in 0u8..8 {
                 let i = Mask::new(i);
                 result.apply_mask(i);
                 result.draw_format_bits(i);
                 let penalty: i32 = result.get_penalty_score();
-                if penalty < minpenalty {
+                if penalty < min_penalty {
                     msk = Some(i);
-                    minpenalty = penalty;
+                    min_penalty = penalty;
                 }
                 result.apply_mask(i); // Undoes the mask due to XOR
             }
@@ -237,8 +237,8 @@ impl QrCode {
         result.apply_mask(msk); // Apply the final choice of mask
         result.draw_format_bits(msk); // Overwrite old format bits
 
-        result.isfunction.clear();
-        result.isfunction.shrink_to_fit();
+        result.is_function.clear();
+        result.is_function.shrink_to_fit();
         result
     }
 
@@ -256,7 +256,7 @@ impl QrCode {
 
     /// Returns this QR Code's error correction level.
     pub fn error_correction_level(&self) -> QrCodeEcc {
-        self.errorcorrectionlevel
+        self.error_correction_level
     }
 
     /// Returns this QR Code's mask, in the range [0, 7].
@@ -300,13 +300,13 @@ impl QrCode {
         self.draw_finder_pattern(3, size - 4);
 
         // Draw numerous alignment patterns
-        let alignpatpos: Vec<i32> = self.get_alignment_pattern_positions();
-        let numalign: usize = alignpatpos.len();
-        for i in 0..numalign {
-            for j in 0..numalign {
+        let align_pat_pos: Vec<i32> = self.get_alignment_pattern_positions();
+        let num_align: usize = align_pat_pos.len();
+        for i in 0..num_align {
+            for j in 0..num_align {
                 // Don't draw on the three finder corners
-                if !(i == 0 && j == 0 || i == 0 && j == numalign - 1 || i == numalign - 1 && j == 0) {
-                    self.draw_alignment_pattern(alignpatpos[i], alignpatpos[j]);
+                if !(i == 0 && j == 0 || i == 0 && j == num_align - 1 || i == num_align - 1 && j == 0) {
+                    self.draw_alignment_pattern(align_pat_pos[i], align_pat_pos[j]);
                 }
             }
         }
@@ -322,7 +322,7 @@ impl QrCode {
         // Calculate error correction code and pack bits
         let bits: u32 = {
             // errcorrlvl is uint2, mask is uint3
-            let data = u32::from(self.errorcorrectionlevel.format_bits() << 3 | mask.value());
+            let data = u32::from(self.error_correction_level.format_bits() << 3 | mask.value());
             let mut rem: u32 = data;
             for _ in 0..10 {
                 rem = (rem << 1) ^ ((rem >> 9) * 0x537);
@@ -408,9 +408,9 @@ impl QrCode {
 
     /// Sets the color of a module and marks it as a function module.
     /// Only used by the constructor. Coordinates must be in bounds.
-    fn set_function_module(&mut self, x: i32, y: i32, isdark: bool) {
-        *self.module_mut(x, y) = isdark;
-        self.isfunction[(y * self.size + x) as usize] = true;
+    fn set_function_module(&mut self, x: i32, y: i32, is_dark: bool) {
+        *self.module_mut(x, y) = is_dark;
+        self.is_function[(y * self.size + x) as usize] = true;
     }
 
     /*---- Private helper methods for constructor: Codewords and masking ----*/
@@ -419,26 +419,26 @@ impl QrCode {
     /// codewords appended to it, based on this object's version and error correction level.
     fn add_ecc_and_interleave(&self, data: &[u8]) -> Vec<u8> {
         let ver: Version = self.version;
-        let ecl: QrCodeEcc = self.errorcorrectionlevel;
+        let ecl: QrCodeEcc = self.error_correction_level;
         assert_eq!(data.len(), QrCode::get_num_data_codewords(ver, ecl), "Illegal argument");
 
         // Calculate parameter numbers
-        let numblocks: usize = QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl);
-        let blockecclen: usize = QrCode::table_get(&ECC_CODEWORDS_PER_BLOCK, ver, ecl);
-        let rawcodewords: usize = QrCode::get_num_raw_data_modules(ver) / 8;
-        let numshortblocks: usize = numblocks - rawcodewords % numblocks;
-        let shortblocklen: usize = rawcodewords / numblocks;
+        let num_blocks: usize = QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl);
+        let block_ecc_len: usize = QrCode::table_get(&ECC_CODEWORDS_PER_BLOCK, ver, ecl);
+        let raw_codewords: usize = QrCode::get_num_raw_data_modules(ver) / 8;
+        let num_short_blocks: usize = num_blocks - raw_codewords % num_blocks;
+        let short_block_len: usize = raw_codewords / num_blocks;
 
         // Split data into blocks and append ECC to each block
-        let mut blocks = Vec::<Vec<u8>>::with_capacity(numblocks);
-        let rsdiv: Vec<u8> = QrCode::reed_solomon_compute_divisor(blockecclen);
+        let mut blocks = Vec::<Vec<u8>>::with_capacity(num_blocks);
+        let rs_div: Vec<u8> = QrCode::reed_solomon_compute_divisor(block_ecc_len);
         let mut k: usize = 0;
-        for i in 0..numblocks {
-            let datlen: usize = shortblocklen - blockecclen + usize::from(i >= numshortblocks);
-            let mut dat = data[k..k + datlen].to_vec();
-            k += datlen;
-            let ecc: Vec<u8> = QrCode::reed_solomon_compute_remainder(&dat, &rsdiv);
-            if i < numshortblocks {
+        for i in 0..num_blocks {
+            let dat_len: usize = short_block_len - block_ecc_len + usize::from(i >= num_short_blocks);
+            let mut dat = data[k..k + dat_len].to_vec();
+            k += dat_len;
+            let ecc: Vec<u8> = QrCode::reed_solomon_compute_remainder(&dat, &rs_div);
+            if i < num_short_blocks {
                 dat.push(0);
             }
             dat.extend_from_slice(&ecc);
@@ -446,11 +446,11 @@ impl QrCode {
         }
 
         // Interleave (not concatenate) the bytes from every block into a single sequence
-        let mut result = Vec::<u8>::with_capacity(rawcodewords);
-        for i in 0..=shortblocklen {
+        let mut result = Vec::<u8>::with_capacity(raw_codewords);
+        for i in 0..=short_block_len {
             for (j, block) in blocks.iter().enumerate() {
                 // Skip the padding byte in short blocks
-                if i != shortblocklen - blockecclen || j >= numshortblocks {
+                if i != short_block_len - block_ecc_len || j >= num_short_blocks {
                     result.push(block[i]);
                 }
             }
@@ -481,7 +481,7 @@ impl QrCode {
                     let x: i32 = right - j; // Actual x coordinate
                     let upward: bool = (right + 1) & 2 == 0;
                     let y: i32 = if upward { self.size - 1 - vert } else { vert }; // Actual y coordinate
-                    if !self.isfunction[(y * self.size + x) as usize] && i < data.len() * 8 {
+                    if !self.is_function[(y * self.size + x) as usize] && i < data.len() * 8 {
                         *self.module_mut(x, y) = get_bit(u32::from(data[i >> 3]), 7 - ((i as i32) & 7));
                         i += 1;
                     }
@@ -513,7 +513,7 @@ impl QrCode {
                     7 => ((x + y) % 2 + x * y % 3) % 2 == 0,
                     _ => unreachable!(),
                 };
-                *self.module_mut(x, y) ^= invert & !self.isfunction[(y * self.size + x) as usize];
+                *self.module_mut(x, y) ^= invert & !self.is_function[(y * self.size + x) as usize];
             }
         }
     }
@@ -526,51 +526,51 @@ impl QrCode {
 
         // Adjacent modules in row having same color, and finder-like patterns
         for y in 0..size {
-            let mut runcolor = false;
-            let mut runx: i32 = 0;
-            let mut runhistory = FinderPenalty::new(size);
+            let mut run_color = false;
+            let mut run_x: i32 = 0;
+            let mut run_history = FinderPenalty::new(size);
             for x in 0..size {
-                if self.module(x, y) == runcolor {
-                    runx += 1;
-                    if runx == 5 {
+                if self.module(x, y) == run_color {
+                    run_x += 1;
+                    if run_x == 5 {
                         result += PENALTY_N1;
-                    } else if runx > 5 {
+                    } else if run_x > 5 {
                         result += 1;
                     }
                 } else {
-                    runhistory.add_history(runx);
-                    if !runcolor {
-                        result += runhistory.count_patterns() * PENALTY_N3;
+                    run_history.add_history(run_x);
+                    if !run_color {
+                        result += run_history.count_patterns() * PENALTY_N3;
                     }
-                    runcolor = self.module(x, y);
-                    runx = 1;
+                    run_color = self.module(x, y);
+                    run_x = 1;
                 }
             }
-            result += runhistory.terminate_and_count(runcolor, runx) * PENALTY_N3;
+            result += run_history.terminate_and_count(run_color, run_x) * PENALTY_N3;
         }
         // Adjacent modules in column having same color, and finder-like patterns
         for x in 0..size {
-            let mut runcolor = false;
-            let mut runy: i32 = 0;
-            let mut runhistory = FinderPenalty::new(size);
+            let mut run_color = false;
+            let mut run_y: i32 = 0;
+            let mut run_history = FinderPenalty::new(size);
             for y in 0..size {
-                if self.module(x, y) == runcolor {
-                    runy += 1;
-                    if runy == 5 {
+                if self.module(x, y) == run_color {
+                    run_y += 1;
+                    if run_y == 5 {
                         result += PENALTY_N1;
-                    } else if runy > 5 {
+                    } else if run_y > 5 {
                         result += 1;
                     }
                 } else {
-                    runhistory.add_history(runy);
-                    if !runcolor {
-                        result += runhistory.count_patterns() * PENALTY_N3;
+                    run_history.add_history(run_y);
+                    if !run_color {
+                        result += run_history.count_patterns() * PENALTY_N3;
                     }
-                    runcolor = self.module(x, y);
-                    runy = 1;
+                    run_color = self.module(x, y);
+                    run_y = 1;
                 }
             }
-            result += runhistory.terminate_and_count(runcolor, runy) * PENALTY_N3;
+            result += run_history.terminate_and_count(run_color, run_y) * PENALTY_N3;
         }
 
         // 2*2 blocks of modules having same color
@@ -607,9 +607,9 @@ impl QrCode {
         if ver == 1 {
             vec![]
         } else {
-            let numalign: i32 = ver / 7 + 2;
-            let step: i32 = (ver * 8 + numalign * 3 + 5) / (numalign * 4 - 4) * 2;
-            let mut result: Vec<i32> = (0..numalign - 1).map(|i| self.size - 7 - i * step).collect();
+            let num_align: i32 = ver / 7 + 2;
+            let step: i32 = (ver * 8 + num_align * 3 + 5) / (num_align * 4 - 4) * 2;
+            let mut result: Vec<i32> = (0..num_align - 1).map(|i| self.size - 7 - i * step).collect();
             result.push(6);
             result.reverse();
             result
@@ -623,8 +623,8 @@ impl QrCode {
         let ver = usize::from(ver.value());
         let mut result: usize = (16 * ver + 128) * ver + 64;
         if ver >= 2 {
-            let numalign: usize = ver / 7 + 2;
-            result -= (25 * numalign - 10) * numalign - 55;
+            let num_align: usize = ver / 7 + 2;
+            result -= (25 * num_align - 10) * num_align - 55;
             if ver >= 7 {
                 result -= 36;
             }

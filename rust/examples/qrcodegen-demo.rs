@@ -68,8 +68,8 @@ fn do_segment_demo() {
     let qr = QrCode::encode_text(&[silver0, silver1].concat(), QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 
-    let segs = vec![QrSegment::make_alphanumeric(silver0), QrSegment::make_numeric(silver1)];
-    let qr = QrCode::encode_segments(&segs, QrCodeEcc::Low).unwrap();
+    let segments = vec![QrSegment::make_alphanumeric(silver0), QrSegment::make_numeric(silver1)];
+    let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 
     // Illustration "golden"
@@ -80,12 +80,12 @@ fn do_segment_demo() {
     let qr = QrCode::encode_text(&[golden0, golden1, golden2].concat(), QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 
-    let segs = vec![
+    let segments = vec![
         QrSegment::make_bytes(golden0.as_bytes()),
         QrSegment::make_numeric(golden1),
         QrSegment::make_alphanumeric(golden2),
     ];
-    let qr = QrCode::encode_segments(&segs, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 
     // Illustration "Madoka": kanji, kana, Cyrillic, full-width Latin, Greek characters
@@ -103,19 +103,20 @@ fn do_segment_demo() {
     for &c in &kanjichars {
         bb.append_bits(c, 13);
     }
-    let segs = vec![QrSegment::new(QrSegmentMode::Kanji, kanjichars.len(), bb.0)];
-    let qr = QrCode::encode_segments(&segs, QrCodeEcc::Low).unwrap();
+    let segments = vec![QrSegment::new(QrSegmentMode::Kanji, kanjichars.len(), bb.0)];
+    let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 }
 
 /// Creates QR Codes with the same size and contents but different mask patterns.
 fn do_mask_demo() {
     // Project Nayuki URL
-    let segs = QrSegment::make_segments("https://www.nayuki.io/");
-    let qr = QrCode::encode_segments_advanced(&segs, QrCodeEcc::High, Version::MIN, Version::MAX, None, true).unwrap(); // Automatic mask
+    let segments = QrSegment::make_segments("https://www.nayuki.io/");
+    let qr =
+        QrCode::encode_segments_advanced(&segments, QrCodeEcc::High, Version::MIN, Version::MAX, None, true).unwrap(); // Automatic mask
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
-        &segs,
+        &segments,
         QrCodeEcc::High,
         Version::MIN,
         Version::MAX,
@@ -126,11 +127,11 @@ fn do_mask_demo() {
     print_qr(&qr);
 
     // Chinese text as UTF-8
-    let segs = QrSegment::make_segments(
+    let segments = QrSegment::make_segments(
         "維基百科（Wikipedia，聆聽i/ˌwɪkᵻˈpiːdi.ə/）是一個自由內容、公開編輯且多語言的網路百科全書協作計畫",
     );
     let qr = QrCode::encode_segments_advanced(
-        &segs,
+        &segments,
         QrCodeEcc::Medium,
         Version::MIN,
         Version::MAX,
@@ -140,7 +141,7 @@ fn do_mask_demo() {
     .unwrap(); // Force mask 0
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
-        &segs,
+        &segments,
         QrCodeEcc::Medium,
         Version::MIN,
         Version::MAX,
@@ -150,7 +151,7 @@ fn do_mask_demo() {
     .unwrap(); // Force mask 1
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
-        &segs,
+        &segments,
         QrCodeEcc::Medium,
         Version::MIN,
         Version::MAX,
@@ -160,7 +161,7 @@ fn do_mask_demo() {
     .unwrap(); // Force mask 5
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
-        &segs,
+        &segments,
         QrCodeEcc::Medium,
         Version::MIN,
         Version::MAX,

@@ -166,14 +166,14 @@ impl QrSegment {
     pub(crate) fn get_total_bits(segments: &[Self], version: Version) -> Option<usize> {
         let mut result: usize = 0;
         for seg in segments {
-            let ccbits: u8 = seg.mode.num_char_count_bits(version);
-            // ccbits can be as large as 16, but usize can be as small as 16
-            if let Some(limit) = 1usize.checked_shl(ccbits.into()) {
+            let cc_bits: u8 = seg.mode.num_char_count_bits(version);
+            // cc_bits can be as large as 16, but usize can be as small as 16
+            if let Some(limit) = 1usize.checked_shl(cc_bits.into()) {
                 if seg.num_chars >= limit {
                     return None; // The segment's length doesn't fit the field's bit width
                 }
             }
-            result = result.checked_add(4 + usize::from(ccbits))?;
+            result = result.checked_add(4 + usize::from(cc_bits))?;
             result = result.checked_add(seg.data.len())?;
         }
         Some(result)
