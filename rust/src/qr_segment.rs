@@ -5,10 +5,6 @@ use QrSegmentMode::*;
 use crate::bit_buffer::BitBuffer;
 use crate::version::Version;
 
-/// The set of all legal characters in alphanumeric mode,
-/// where each character value maps to the index in the string.
-static ALPHANUMERIC_CHARSET: &str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
-
 /// Describes how a segment's data bits are interpreted.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum QrSegmentMode {
@@ -54,11 +50,19 @@ impl QrSegment {
     ///
     /// Any text string can be converted to UTF-8 bytes and encoded as a byte mode segment.
     pub fn make_bytes(data: &[u8]) -> Self {
-        let mut bb = BitBuffer(Vec::with_capacity(data.len().checked_mul(8).unwrap()));
+        let cap = data.len().checked_mul(8).unwrap();
+        let mut bb = BitBuffer(Vec::with_capacity(cap));
         for &b in data {
             bb.append_bits(u32::from(b), 8);
         }
         QrSegment::new(Byte, data.len(), bb.0)
+    }
+
+    /// Tests whether the given string can be encoded as a segment in numeric mode.
+    ///
+    /// A string is encodable iff each character is in the range 0 to 9.
+    pub fn is_numeric(text: &str) -> bool {
+        text.chars().all(|c| c.is_ascii_digit())
     }
 
     /// Returns a segment representing the given string of decimal digits encoded in numeric mode.
@@ -83,6 +87,18 @@ impl QrSegment {
         QrSegment::new(Numeric, text.len(), bb.0)
     }
 
+    /// The set of all legal characters in alphanumeric mode,
+    /// where each character value maps to the index in the string.
+    const ALPHANUMERIC_CHARSET: &'static str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+
+    /// Tests whether the given string can be encoded as a segment in alphanumeric mode.
+    ///
+    /// A string is encodable iff each character is in the following set: `0` to `9`, `A` to `Z`
+    /// (uppercase only), space, dollar, percent, asterisk, plus, hyphen, period, slash, colon.
+    pub fn is_alphanumeric(text: &str) -> bool {
+        text.chars().all(|c| Self::ALPHANUMERIC_CHARSET.contains(c))
+    }
+
     /// Returns a segment representing the given text string encoded in alphanumeric mode.
     ///
     /// The characters allowed are: 0 to 9, A to Z (uppercase only), space,
@@ -101,7 +117,7 @@ impl QrSegment {
             let data: u32 = chunk.iter().fold(0u32, |acc, &b| {
                 acc * 45
                     + u32::try_from(
-                        ALPHANUMERIC_CHARSET
+                        Self::ALPHANUMERIC_CHARSET
                             .find(char::from(b))
                             .expect("String contains unencodable characters in alphanumeric mode"),
                     )
@@ -177,21 +193,6 @@ impl QrSegment {
             result = result.checked_add(seg.data.len())?;
         }
         Some(result)
-    }
-
-    /// Tests whether the given string can be encoded as a segment in numeric mode.
-    ///
-    /// A string is encodable iff each character is in the range 0 to 9.
-    pub fn is_numeric(text: &str) -> bool {
-        text.chars().all(|c| ('0'..='9').contains(&c))
-    }
-
-    /// Tests whether the given string can be encoded as a segment in alphanumeric mode.
-    ///
-    /// A string is encodable iff each character is in the following set: `0` to `9`, `A` to `Z`
-    /// (uppercase only), space, dollar, percent, asterisk, plus, hyphen, period, slash, colon.
-    pub fn is_alphanumeric(text: &str) -> bool {
-        text.chars().all(|c| ALPHANUMERIC_CHARSET.contains(c))
     }
 }
 
