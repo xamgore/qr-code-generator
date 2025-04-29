@@ -129,9 +129,11 @@ impl QrCode {
 
         // Find the minimal version number to use
         let mut version: Version = min_version;
+
         let data_used_bits: usize = loop {
             let data_capacity_bits: usize = QrCode::get_num_data_codewords(version, ecl) * 8; // Number of data bits available
             let data_used: Option<usize> = QrSegment::get_total_bits(segments, version);
+
             if data_used.map_or(false, |n| n <= data_capacity_bits) {
                 break data_used.unwrap(); // This version number is found to be suitable
             } else if version >= max_version {
@@ -141,7 +143,7 @@ impl QrCode {
                     Some(n) => DataTooLong::DataOverCapacity(n, data_capacity_bits),
                 });
             } else {
-                version = Version::new(version.value() + 1);
+                version += 1;
             }
         };
 
@@ -201,7 +203,7 @@ impl QrCode {
     /// A mid-level API is the `encode_segments()` function.
     pub fn encode_codewords(ver: Version, ecl: QrCodeEcc, data_codewords: &[u8], mut msk: Option<Mask>) -> Self {
         // Initialize fields
-        let size = usize::from(ver.value()) * 4 + 17;
+        let size = usize::from(ver) * 4 + 17;
         let mut result = Self {
             version: ver,
             size: size as i32,
@@ -356,13 +358,13 @@ impl QrCode {
     /// Draws two copies of the version bits (with its own error correction code),
     /// based on this object's version field, iff 7 <= version <= 40.
     fn draw_version(&mut self) {
-        if self.version.value() < 7 {
+        if self.version < 7 {
             return;
         }
 
         // Calculate error correction code and pack bits
         let bits: u32 = {
-            let data = u32::from(self.version.value()); // uint6, in the range [7, 40]
+            let data = u32::from(self.version); // uint6, in the range [7, 40]
             let mut rem: u32 = data;
             for _ in 0..12 {
                 rem = (rem << 1) ^ ((rem >> 11) * 0x1F25);
@@ -603,7 +605,7 @@ impl QrCode {
     /// Each position is in the range [0,177), and are used on both the x and y axes.
     /// This could be implemented as lookup table of 40 variable-length lists of unsigned bytes.
     fn get_alignment_pattern_positions(&self) -> Vec<i32> {
-        let ver = i32::from(self.version.value());
+        let ver = i32::from(self.version);
         if ver == 1 {
             vec![]
         } else {
@@ -619,8 +621,8 @@ impl QrCode {
     /// Returns the number of data bits that can be stored in a QR Code of the given version number, after
     /// all function modules are excluded. This includes remainder bits, so it might not be a multiple of 8.
     /// The result is in the range [208, 29648]. This could be implemented as a 40-entry lookup table.
-    fn get_num_raw_data_modules(ver: Version) -> usize {
-        let ver = usize::from(ver.value());
+    fn get_num_raw_data_modules(version: Version) -> usize {
+        let ver = usize::from(version);
         let mut result: usize = (16 * ver + 128) * ver + 64;
         if ver >= 2 {
             let num_align: usize = ver / 7 + 2;
@@ -644,7 +646,7 @@ impl QrCode {
 
     /// Returns an entry from the given table based on the given values.
     fn table_get(table: &'static [[i8; 41]; 4], ver: Version, ecl: QrCodeEcc) -> usize {
-        table[ecl.ordinal()][usize::from(ver.value())] as usize
+        table[ecl.ordinal()][usize::from(ver)] as usize
     }
 
     /// Returns a Reed-Solomon ECC generator polynomial for the given degree. This could be

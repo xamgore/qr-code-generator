@@ -219,6 +219,6 @@ impl QrSegmentMode {
             Byte => [8, 16, 16],
             Kanji => [8, 10, 12],
             Eci => [0, 0, 0],
-        })[usize::from((ver.value() + 7) / 17)]
+        })[(usize::from(ver) + 7) / 17]
     }
 }

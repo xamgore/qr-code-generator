@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::ops::{Add, AddAssign, Deref};
+
 /// A number between 1 and 40 (inclusive).
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Version(u8);
@@ -13,15 +16,68 @@ impl Version {
     ///
     /// Panics if the number is outside the range [1, 40].
     pub const fn new(ver: u8) -> Self {
-        assert!(
-            Version::MIN.value() <= ver && ver <= Version::MAX.value(),
-            "Version number out of range"
-        );
+        let self1 = Version::MAX;
+        let self2 = Version::MIN;
+        assert!(self2.0 <= ver && ver <= self1.0, "Version number out of range");
         Self(ver)
     }
+}
 
-    /// Returns the value, which is in the range [1, 40].
-    pub const fn value(self) -> u8 {
-        self.0
+impl Deref for Version {
+    type Target = u8;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AddAssign<u8> for Version {
+    fn add_assign(&mut self, rhs: u8) {
+        self.0 += rhs;
+    }
+}
+
+impl Add<u8> for Version {
+    type Output = Version;
+
+    fn add(mut self, rhs: u8) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl PartialEq<u8> for Version {
+    fn eq(&self, other: &u8) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialOrd<u8> for Version {
+    fn partial_cmp(&self, other: &u8) -> Option<Ordering> {
+        self.0.partial_cmp(other)
+    }
+}
+
+impl From<Version> for usize {
+    fn from(value: Version) -> Self {
+        value.0 as usize
+    }
+}
+
+impl From<Version> for u32 {
+    fn from(value: Version) -> Self {
+        value.0 as u32
+    }
+}
+
+impl From<Version> for i32 {
+    fn from(value: Version) -> Self {
+        value.0 as i32
+    }
+}
+
+impl From<Version> for u8 {
+    fn from(value: Version) -> Self {
+        value.0
     }
 }
