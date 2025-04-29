@@ -99,11 +99,11 @@ fn do_segment_demo() {
         0x0144, 0x0001, 0x0000, 0x0249, 0x0240, 0x0249, 0x0000, 0x0104, 0x0105, 0x0113, 0x0115, 0x0000, 0x0208, 0x01FF,
         0x0008,
     ];
-    let mut bb = BitBuffer(Vec::new());
+    let mut bb = BitBuffer::from(Vec::new());
     for &c in &kanjichars {
         bb.append_bits(c, 13);
     }
-    let segments = vec![QrSegment::new(QrSegmentMode::Kanji, kanjichars.len(), bb.0)];
+    let segments = vec![QrSegment::new(QrSegmentMode::Kanji, kanjichars.len(), bb)];
     let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
     print_qr(&qr);
 }

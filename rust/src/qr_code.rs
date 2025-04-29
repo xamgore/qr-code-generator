@@ -156,37 +156,37 @@ impl QrCode {
         }
 
         // Concatenate all segments to create the data bit string
-        let mut bb = BitBuffer(Vec::new());
+        let mut bb = BitBuffer::from(Vec::new());
         for seg in segments {
             bb.append_bits(seg.mode.mode_bits(), 4);
             bb.append_bits(
                 u32::try_from(seg.num_chars).unwrap(),
                 seg.mode.num_char_count_bits(version),
             );
-            bb.0.extend_from_slice(&seg.data);
+            bb.extend_from_slice(&seg.data);
         }
-        debug_assert_eq!(bb.0.len(), data_used_bits);
+        debug_assert_eq!(bb.len(), data_used_bits);
 
         // Add terminator and pad up to a byte if applicable
         let data_capacity_bits: usize = QrCode::get_num_data_codewords(version, ecl) * 8;
-        debug_assert!(bb.0.len() <= data_capacity_bits);
-        let num_zero_bits: usize = std::cmp::min(4, data_capacity_bits - bb.0.len());
+        debug_assert!(bb.len() <= data_capacity_bits);
+        let num_zero_bits: usize = std::cmp::min(4, data_capacity_bits - bb.len());
         bb.append_bits(0, u8::try_from(num_zero_bits).unwrap());
-        let num_zero_bits: usize = bb.0.len().wrapping_neg() & 7;
+        let num_zero_bits: usize = bb.len().wrapping_neg() & 7;
         bb.append_bits(0, u8::try_from(num_zero_bits).unwrap());
-        debug_assert_eq!(bb.0.len() % 8, 0);
+        debug_assert_eq!(bb.len() % 8, 0);
 
         // Pad with alternating bytes until data capacity is reached
         for &pad_byte in [0xEC, 0x11].iter().cycle() {
-            if bb.0.len() >= data_capacity_bits {
+            if bb.len() >= data_capacity_bits {
                 break;
             }
             bb.append_bits(pad_byte, 8);
         }
 
         // Pack bits into bytes in big endian
-        let mut data_codewords = vec![0u8; bb.0.len() / 8];
-        for (i, &bit) in bb.0.iter().enumerate() {
+        let mut data_codewords = vec![0u8; bb.len() / 8];
+        for (i, &bit) in bb.iter().enumerate() {
             data_codewords[i >> 3] |= u8::from(bit) << (7 - (i & 7));
         }
 
