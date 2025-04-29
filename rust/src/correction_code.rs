@@ -1,6 +1,6 @@
 /// The error correction level in a QR Code symbol.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub enum QrCodeEcc {
+pub enum ErrCorrectLvl {
     /// The QR Code can tolerate about  7% erroneous codewords.
     Low,
     /// The QR Code can tolerate about 15% erroneous codewords.
@@ -11,10 +11,10 @@ pub enum QrCodeEcc {
     High,
 }
 
-impl QrCodeEcc {
+impl ErrCorrectLvl {
     /// Returns an unsigned 2-bit integer (in the range 0 to 3).
     pub(crate) fn ordinal(self) -> usize {
-        use QrCodeEcc::*;
+        use ErrCorrectLvl::*;
         match self {
             Low => 0,
             Medium => 1,
@@ -25,7 +25,7 @@ impl QrCodeEcc {
 
     /// Returns an unsigned 2-bit integer (in the range 0 to 3).
     pub(crate) fn format_bits(self) -> u8 {
-        use QrCodeEcc::*;
+        use ErrCorrectLvl::*;
         match self {
             Low => 1,
             Medium => 0,

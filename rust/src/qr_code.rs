@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::bit_buffer::BitBuffer;
-use crate::correction_code::QrCodeEcc;
+use crate::correction_code::ErrCorrectLvl;
 use crate::error::DataTooLong;
 use crate::finder_penalty::FinderPenalty;
 use crate::get_bit;
@@ -40,7 +40,7 @@ pub struct QrCode {
     size: i32,
 
     /// The error correction level used in this QR Code.
-    error_correction_level: QrCodeEcc,
+    error_correction_level: ErrCorrectLvl,
 
     /// The index of the mask pattern used in this QR Code, which is between 0 and 7 (inclusive).
     /// Even if a QR Code is created with automatic masking requested (mask = None),
@@ -64,13 +64,13 @@ impl QrCode {
     /// As a conservative upper bound, this function is guaranteed to succeed for strings that have 738 or fewer Unicode
     /// code points (not UTF-8 code units) if the low error correction level is used. The smallest possible
     /// QR Code version is automatically chosen for the output. The ECC level of the result may be higher than
-    /// the ecl argument if it can be done without increasing the version.
+    /// the `err_correction_lvl` argument if it can be done without increasing the version.
     ///
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
-    pub fn encode_text(text: &str, ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
+    pub fn encode_text(text: &str, err_correction_lvl: ErrCorrectLvl) -> Result<Self, DataTooLong> {
         let segments: Vec<QrSegment> = QrSegment::make_segments(text);
-        QrCode::encode_segments(&segments, ecl)
+        QrCode::encode_segments(&segments, err_correction_lvl)
     }
 
     /// Returns a QR Code representing the given binary data at the given error correction level.
@@ -81,7 +81,7 @@ impl QrCode {
     ///
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
-    pub fn encode_binary(data: &[u8], ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
+    pub fn encode_binary(data: &[u8], ecl: ErrCorrectLvl) -> Result<Self, DataTooLong> {
         let segments: [QrSegment; 1] = [QrSegment::make_bytes(data)];
         QrCode::encode_segments(&segments, ecl)
     }
@@ -99,7 +99,7 @@ impl QrCode {
     ///
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
-    pub fn encode_segments(segments: &[QrSegment], ecl: QrCodeEcc) -> Result<Self, DataTooLong> {
+    pub fn encode_segments(segments: &[QrSegment], ecl: ErrCorrectLvl) -> Result<Self, DataTooLong> {
         QrCode::encode_segments_advanced(segments, ecl, Version::MIN, Version::MAX, None, true)
     }
 
@@ -119,7 +119,7 @@ impl QrCode {
     /// long to fit in any version in the given range at the given ECC level.
     pub fn encode_segments_advanced(
         segments: &[QrSegment],
-        mut ecl: QrCodeEcc,
+        mut ecl: ErrCorrectLvl,
         min_version: Version,
         max_version: Version,
         mask: Option<Mask>,
@@ -148,7 +148,7 @@ impl QrCode {
         };
 
         // Increase the error correction level while the data still fits in the current version number
-        for &new_ecl in &[QrCodeEcc::Medium, QrCodeEcc::Quartile, QrCodeEcc::High] {
+        for &new_ecl in &[ErrCorrectLvl::Medium, ErrCorrectLvl::Quartile, ErrCorrectLvl::High] {
             // From low to high
             if boost_ecl && data_used_bits <= QrCode::get_num_data_codewords(version, new_ecl) * 8 {
                 ecl = new_ecl;
@@ -201,7 +201,7 @@ impl QrCode {
     ///
     /// This is a low-level API that most users should not use directly.
     /// A mid-level API is the `encode_segments()` function.
-    pub fn encode_codewords(ver: Version, ecl: QrCodeEcc, data_codewords: &[u8], mut msk: Option<Mask>) -> Self {
+    pub fn encode_codewords(ver: Version, ecl: ErrCorrectLvl, data_codewords: &[u8], mut msk: Option<Mask>) -> Self {
         // Initialize fields
         let size = usize::from(ver) * 4 + 17;
         let mut result = Self {
@@ -257,7 +257,7 @@ impl QrCode {
     }
 
     /// Returns this QR Code's error correction level.
-    pub fn error_correction_level(&self) -> QrCodeEcc {
+    pub fn error_correction_level(&self) -> ErrCorrectLvl {
         self.error_correction_level
     }
 
@@ -421,7 +421,7 @@ impl QrCode {
     /// codewords appended to it, based on this object's version and error correction level.
     fn add_ecc_and_interleave(&self, data: &[u8]) -> Vec<u8> {
         let ver: Version = self.version;
-        let ecl: QrCodeEcc = self.error_correction_level;
+        let ecl: ErrCorrectLvl = self.error_correction_level;
         assert_eq!(data.len(), QrCode::get_num_data_codewords(ver, ecl), "Illegal argument");
 
         // Calculate parameter numbers
@@ -638,14 +638,14 @@ impl QrCode {
     /// Returns the number of 8-bit data (i.e. not error correction) codewords contained in any
     /// QR Code of the given version number and error correction level, with remainder bits discarded.
     /// This stateless pure function could be implemented as a (40*4)-cell lookup table.
-    fn get_num_data_codewords(ver: Version, ecl: QrCodeEcc) -> usize {
+    fn get_num_data_codewords(ver: Version, ecl: ErrCorrectLvl) -> usize {
         QrCode::get_num_raw_data_modules(ver) / 8
             - QrCode::table_get(&ECC_CODEWORDS_PER_BLOCK, ver, ecl)
                 * QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl)
     }
 
     /// Returns an entry from the given table based on the given values.
-    fn table_get(table: &'static [[i8; 41]; 4], ver: Version, ecl: QrCodeEcc) -> usize {
+    fn table_get(table: &'static [[i8; 41]; 4], ver: Version, ecl: ErrCorrectLvl) -> usize {
         table[ecl.ordinal()][usize::from(ver)] as usize
     }
 

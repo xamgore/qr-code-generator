@@ -17,7 +17,7 @@ fn main() {
 /// Creates a single QR Code, then prints it to the console.
 fn do_basic_demo() {
     let text: &'static str = "Hello, world!"; // User-supplied Unicode text
-    let errcorlvl: QrCodeEcc = QrCodeEcc::Low; // Error correction level
+    let errcorlvl: ErrCorrectLvl = ErrCorrectLvl::Low; // Error correction level
 
     // Make and print the QR Code symbol
     let qr: QrCode = QrCode::encode_text(text, errcorlvl).unwrap();
@@ -28,19 +28,19 @@ fn do_basic_demo() {
 /// Creates a variety of QR Codes that exercise different features of the library, and prints each one to the console.
 fn do_variety_demo() {
     // Numeric mode encoding (3.33 bits per digit)
-    let qr = QrCode::encode_text("314159265358979323846264338327950288419716939937510", QrCodeEcc::Medium).unwrap();
+    let qr = QrCode::encode_text("314159265358979323846264338327950288419716939937510", ErrCorrectLvl::Medium).unwrap();
     print_qr(&qr);
 
     // Alphanumeric mode encoding (5.5 bits per character)
     let qr = QrCode::encode_text(
         "DOLLAR-AMOUNT:$39.87 PERCENTAGE:100.00% OPERATIONS:+-*/",
-        QrCodeEcc::High,
+        ErrCorrectLvl::High,
     )
     .unwrap();
     print_qr(&qr);
 
     // Unicode text as UTF-8
-    let qr = QrCode::encode_text("こんにちwa、世界！ αβγδ", QrCodeEcc::Quartile).unwrap();
+    let qr = QrCode::encode_text("こんにちwa、世界！ αβγδ", ErrCorrectLvl::Quartile).unwrap();
     print_qr(&qr);
 
     // Moderately large QR Code using longer text (from Lewis Carroll's Alice in Wonderland)
@@ -54,7 +54,7 @@ fn do_variety_demo() {
             "daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly ",
             "a White Rabbit with pink eyes ran close by her."
         ),
-        QrCodeEcc::High,
+        ErrCorrectLvl::High,
     )
     .unwrap();
     print_qr(&qr);
@@ -65,11 +65,11 @@ fn do_segment_demo() {
     // Illustration "silver"
     let silver0 = "THE SQUARE ROOT OF 2 IS 1.";
     let silver1 = "41421356237309504880168872420969807856967187537694807317667973799";
-    let qr = QrCode::encode_text(&[silver0, silver1].concat(), QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_text(&[silver0, silver1].concat(), ErrCorrectLvl::Low).unwrap();
     print_qr(&qr);
 
     let segments = vec![QrSegment::make_alphanumeric(silver0), QrSegment::make_numeric(silver1)];
-    let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_segments(&segments, ErrCorrectLvl::Low).unwrap();
     print_qr(&qr);
 
     // Illustration "golden"
@@ -77,7 +77,7 @@ fn do_segment_demo() {
     let golden1 =
         "6180339887498948482045868343656381177203091798057628621354486227052604628189024497072072041893911374";
     let golden2 = "......";
-    let qr = QrCode::encode_text(&[golden0, golden1, golden2].concat(), QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_text(&[golden0, golden1, golden2].concat(), ErrCorrectLvl::Low).unwrap();
     print_qr(&qr);
 
     let segments = vec![
@@ -85,12 +85,12 @@ fn do_segment_demo() {
         QrSegment::make_numeric(golden1),
         QrSegment::make_alphanumeric(golden2),
     ];
-    let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_segments(&segments, ErrCorrectLvl::Low).unwrap();
     print_qr(&qr);
 
     // Illustration "Madoka": kanji, kana, Cyrillic, full-width Latin, Greek characters
     let madoka = "「魔法少女まどか☆マギカ」って、　ИАИ　ｄｅｓｕ　κα？";
-    let qr = QrCode::encode_text(madoka, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_text(madoka, ErrCorrectLvl::Low).unwrap();
     print_qr(&qr);
 
     let kanjichars: Vec<u32> = vec![
@@ -104,7 +104,7 @@ fn do_segment_demo() {
         bb.append_bits(c, 13);
     }
     let segments = vec![QrSegment::new(QrSegmentMode::Kanji, kanjichars.len(), bb)];
-    let qr = QrCode::encode_segments(&segments, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_segments(&segments, ErrCorrectLvl::Low).unwrap();
     print_qr(&qr);
 }
 
@@ -113,11 +113,11 @@ fn do_mask_demo() {
     // Project Nayuki URL
     let segments = QrSegment::make_segments("https://www.nayuki.io/");
     let qr =
-        QrCode::encode_segments_advanced(&segments, QrCodeEcc::High, Version::MIN, Version::MAX, None, true).unwrap(); // Automatic mask
+        QrCode::encode_segments_advanced(&segments, ErrCorrectLvl::High, Version::MIN, Version::MAX, None, true).unwrap(); // Automatic mask
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
         &segments,
-        QrCodeEcc::High,
+        ErrCorrectLvl::High,
         Version::MIN,
         Version::MAX,
         Some(Mask::new(3)),
@@ -132,7 +132,7 @@ fn do_mask_demo() {
     );
     let qr = QrCode::encode_segments_advanced(
         &segments,
-        QrCodeEcc::Medium,
+        ErrCorrectLvl::Medium,
         Version::MIN,
         Version::MAX,
         Some(Mask::new(0)),
@@ -142,7 +142,7 @@ fn do_mask_demo() {
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
         &segments,
-        QrCodeEcc::Medium,
+        ErrCorrectLvl::Medium,
         Version::MIN,
         Version::MAX,
         Some(Mask::new(1)),
@@ -152,7 +152,7 @@ fn do_mask_demo() {
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
         &segments,
-        QrCodeEcc::Medium,
+        ErrCorrectLvl::Medium,
         Version::MIN,
         Version::MAX,
         Some(Mask::new(5)),
@@ -162,7 +162,7 @@ fn do_mask_demo() {
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
         &segments,
-        QrCodeEcc::Medium,
+        ErrCorrectLvl::Medium,
         Version::MIN,
         Version::MAX,
         Some(Mask::new(7)),
