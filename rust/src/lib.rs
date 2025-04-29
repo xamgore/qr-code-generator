@@ -67,10 +67,10 @@ mod finder_penalty;
 mod mask;
 mod qr_code;
 mod qr_segment;
+pub mod render;
 mod version;
 
 pub mod prelude {
-    use super::*;
     pub use bit_buffer::*;
     pub use correction_code::*;
     pub use error::*;
@@ -79,6 +79,8 @@ pub mod prelude {
     pub use qr_code::*;
     pub use qr_segment::*;
     pub use version::*;
+
+    use super::*;
 }
 
 /// Returns true iff the i'th bit of x is set to 1.

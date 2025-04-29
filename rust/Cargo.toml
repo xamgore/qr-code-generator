@@ -11,3 +11,6 @@ keywords = ["qr-code", "barcode", "encoder", "image"]
 categories = ["encoding", "multimedia::images"]
 license = "MIT"
 exclude = ["examples/*"]
+
+[dependencies]
+image = { version = "0.25", default-features = false, optional = true }
