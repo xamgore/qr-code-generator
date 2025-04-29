@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use QrSegmentMode::*;
 
 use crate::bit_buffer::BitBuffer;
@@ -73,13 +71,14 @@ impl QrSegment {
             text.bytes().all(|b| b.is_ascii_digit()),
             "String contains non-numeric characters"
         );
-        let mut bb = BitBuffer::from(Vec::with_capacity(
-            text.len()
-                .checked_mul(3)
-                .unwrap()
-                .checked_add(text.len().div_ceil(3))
-                .unwrap(),
-        ));
+        // text.len * 3.33(3)
+        let capacity = text
+            .len()
+            .checked_mul(3)
+            .unwrap()
+            .checked_add(text.len().div_ceil(3))
+            .unwrap();
+        let mut bb = BitBuffer::from(Vec::with_capacity(capacity));
         for chunk in text.as_bytes().chunks(3) {
             let data: u32 = chunk.iter().fold(0u32, |acc, &b| acc * 10 + u32::from(b - b'0'));
             bb.append_bits(data, (chunk.len() as u8) * 3 + 1);
@@ -101,28 +100,21 @@ impl QrSegment {
 
     /// Returns a segment representing the given text string encoded in alphanumeric mode.
     ///
-    /// The characters allowed are: 0 to 9, A to Z (uppercase only), space,
+    /// The characters allowed are: `0` to `9`, `A` to `Z` (uppercase only), space,
     /// dollar, percent, asterisk, plus, hyphen, period, slash, colon.
     ///
     /// Panics if the string contains non-encodable characters.
     pub fn make_alphanumeric(text: &str) -> Self {
-        let mut bb = BitBuffer::from(Vec::with_capacity(
-            text.len()
-                .checked_mul(5)
-                .unwrap()
-                .checked_add(text.len().div_ceil(2))
-                .unwrap(),
-        ));
+        // text.len * 5.5
+        let capacity = text
+            .len()
+            .checked_mul(5)
+            .unwrap()
+            .checked_add(text.len().div_ceil(2))
+            .unwrap();
+        let mut bb = BitBuffer::from(Vec::with_capacity(capacity));
         for chunk in text.as_bytes().chunks(2) {
-            let data: u32 = chunk.iter().fold(0u32, |acc, &b| {
-                acc * 45
-                    + u32::try_from(
-                        Self::ALPHANUMERIC_CHARSET
-                            .find(char::from(b))
-                            .expect("String contains unencodable characters in alphanumeric mode"),
-                    )
-                    .unwrap()
-            });
+            let data: u32 = chunk.iter().fold(0u32, |acc, &b| acc * 45 + alphanumeric_to_idx(b));
             bb.append_bits(data, (chunk.len() as u8) * 5 + 1);
         }
         QrSegment::new(Alphanumeric, text.len(), bb)
@@ -147,7 +139,7 @@ impl QrSegment {
     }
 
     /// Returns a segment representing an Extended Channel Interpretation
-    /// (ECI) designator with the given assignment value.
+    /// designator with the given assignment value. (See AIM ECI specification.)
     pub fn make_eci(val: u32) -> Self {
         let mut bb = BitBuffer::from(Vec::with_capacity(24));
         if val < (1 << 7) {

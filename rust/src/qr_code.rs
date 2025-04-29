@@ -221,8 +221,8 @@ impl QrCode {
         // Do masking
         if msk.is_none() {
             // Automatically choose best mask
-            let mut min_penalty = std::i32::MAX;
-            for i in 0u8..8 {
+            let mut min_penalty = i32::MAX;
+            for i in 0..8 {
                 let i = Mask::new(i);
                 result.apply_mask(i);
                 result.draw_format_bits(i);
@@ -383,8 +383,8 @@ impl QrCode {
         }
     }
 
-    /// Draws a 9*9 finder pattern including the border separator,
-    /// with the center module at (x, y). Modules can be out of bounds.
+    /// Draws a `9*9` finder pattern including the border separator,
+    /// with the center module at `(x, y)`. Modules can be out of bounds.
     fn draw_finder_pattern(&mut self, x: i32, y: i32) {
         for dy in -4..=4 {
             for dx in -4..=4 {
@@ -398,8 +398,8 @@ impl QrCode {
         }
     }
 
-    /// Draws a 5*5 alignment pattern, with the center module
-    /// at (x, y). All modules must be in bounds.
+    /// Draws a `5*5` alignment pattern, with the center module at `(x, y)`.
+    /// All modules must be in bounds.
     fn draw_alignment_pattern(&mut self, x: i32, y: i32) {
         for dy in -2..=2 {
             for dx in -2..=2 {
@@ -497,8 +497,11 @@ impl QrCode {
     }
 
     /// XORs the codeword modules in this QR Code with the given mask pattern.
+    ///
     /// The function modules must be marked and the codeword bits must be drawn
-    /// before masking. Due to the arithmetic of XOR, calling apply_mask() with
+    /// before masking.
+    ///
+    /// Due to the arithmetic of XOR, calling `apply_mask()` with
     /// the same mask value a second time will undo the mask. A final well-formed
     /// QR Code needs exactly one (not zero, two, etc.) mask applied.
     fn apply_mask(&mut self, mask: Mask) {
@@ -523,6 +526,11 @@ impl QrCode {
     /// Calculates and returns the penalty score based on state of this QR Code's current modules.
     /// This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
     fn get_penalty_score(&self) -> i32 {
+        const PENALTY_N1: i32 = 3;
+        const PENALTY_N2: i32 = 3;
+        const PENALTY_N3: i32 = 40;
+        const PENALTY_N4: i32 = 10;
+
         let mut result: i32 = 0;
         let size: i32 = self.size;
 
@@ -593,9 +601,9 @@ impl QrCode {
         let total: i32 = size * size; // Note that size is odd, so dark/total != 1/2
         // Compute the smallest integer k >= 0 such that (45-5k)% <= dark/total <= (55+5k)%
         let k: i32 = ((dark * 20 - total * 10).abs() + total - 1) / total - 1;
-        debug_assert!(0 <= k && k <= 9);
+        debug_assert!((0..=9).contains(&k));
         result += k * PENALTY_N4;
-        debug_assert!(0 <= result && result <= 2568888); // Non-tight upper bound based on default values of PENALTY_N1, ..., N4
+        debug_assert!((0..=2568888).contains(&result)); // Non-tight upper bound based on default values of PENALTY_N1, ..., N4
         result
     }
 
@@ -702,12 +710,6 @@ impl QrCode {
         z
     }
 }
-
-// For use in get_penalty_score(), when evaluating which mask is best.
-const PENALTY_N1: i32 = 3;
-const PENALTY_N2: i32 = 3;
-const PENALTY_N3: i32 = 40;
-const PENALTY_N4: i32 = 10;
 
 static ECC_CODEWORDS_PER_BLOCK: [[i8; 41]; 4] = [
     // Version: (note that index 0 is for padding, and is set to an illegal value)
