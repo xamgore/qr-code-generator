@@ -31,7 +31,7 @@ use crate::version::Version;
 ///   constructor.
 ///
 /// (Note that each way requires supplying the desired error correction level.)
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QrCode {
     // Scalar parameters:
     /// The version number of this QR Code, which is between 1 and 40 (inclusive).

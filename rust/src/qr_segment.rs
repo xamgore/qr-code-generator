@@ -29,7 +29,7 @@ pub enum QrSegmentMode {
 /// This segment struct imposes no length restrictions, but QR Codes have restrictions.
 /// Even in the most favorable conditions, a QR Code can only hold 7089 characters of data.
 /// Any segment longer than this is meaningless for the purpose of generating QR Codes.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct QrSegment {
     /// The mode indicator of this segment.
     pub mode: QrSegmentMode,

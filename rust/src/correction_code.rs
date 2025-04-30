@@ -1,5 +1,5 @@
 /// The error correction level in a QR Code symbol.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ErrCorrectLvl {
     /// The QR Code can tolerate about  7% erroneous codewords.
     Low,

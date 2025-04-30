@@ -1,3 +1,4 @@
+use std::fmt::{Formatter, Write};
 use std::ops::{Deref, DerefMut};
 
 use crate::get_bit;
@@ -5,7 +6,7 @@ use crate::get_bit;
 /// An appendable sequence of bits (0s and 1s).
 ///
 /// Mainly used by QrSegment.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Hash)]
 pub struct BitBuffer(Vec<bool>);
 
 impl BitBuffer {
@@ -19,6 +20,16 @@ impl BitBuffer {
 
     pub fn into_inner(self) -> Vec<bool> {
         self.0
+    }
+}
+
+impl std::fmt::Debug for BitBuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_char('[')?;
+        for bit in self.0.iter().copied() {
+            f.write_char(if bit { '1' } else { '0' })?;
+        }
+        f.write_char(']')
     }
 }
 
