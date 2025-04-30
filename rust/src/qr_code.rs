@@ -20,14 +20,17 @@ use crate::version::Version;
 ///
 /// Ways to create a QR Code object:
 ///
-/// - High level: Take the payload data and call `QrCode::encode_text()` or `QrCode::encode_binary()`.
+/// - High level: Take the payload data and call [`QrCode::encode_text()`](QrCode::encode_text) or
+///   [`QrCode::encode_binary()`](QrCode::encode_binary).
 /// - Mid level: Custom-make the list of segments and call
-///   `QrCode::encode_segments()` or `QrCode::encode_segments_advanced()`.
+///   [`QrCode::encode_segments()`](QrCode::encode_segments) or
+///   [`QrCode::encode_segments_advanced()`](QrCode::encode_segments_advanced).
 /// - Low level: Custom-make the array of data codeword bytes (including segment
 ///   headers and final padding, excluding error correction codewords), supply the
-///   appropriate version number, and call the `QrCode::encode_codewords()` constructor.
+///   appropriate version number, and call the [`QrCode::encode_codewords()`](QrCode::encode_codewords)
+///   constructor.
 ///
-/// (Note that all ways require supplying the desired error correction level.)
+/// (Note that each way requires supplying the desired error correction level.)
 #[derive(Clone, PartialEq, Eq)]
 pub struct QrCode {
     // Scalar parameters:
@@ -95,7 +98,7 @@ impl QrCode {
     ///
     /// This function allows the user to create a custom sequence of segments that switches
     /// between modes (such as alphanumeric and byte) to encode text in less space.
-    /// This is a mid-level API; the high-level API is `encode_text()` and `encode_binary()`.
+    /// This is a mid-level API; the high-level API is [`encode_text()`](QrCode::encode_text) and [`encode_binary()`](QrCode::encode_binary).
     ///
     /// Returns a wrapped `QrCode` if successful, or `Err` if the
     /// data is too long to fit in any version at the given ECC level.
@@ -106,14 +109,14 @@ impl QrCode {
     /// Returns a QR Code representing the given segments with the given encoding parameters.
     ///
     /// The smallest possible QR Code version within the given range is automatically
-    /// chosen for the output. Iff boostecl is `true`, then the ECC level of the result
+    /// chosen for the output. Iff `boost_ecl` is `true`, then the ECC level of the result
     /// may be higher than the ecl argument if it can be done without increasing the
-    /// version. The mask number is either between 0 to 7 (inclusive) to force that
+    /// version. The mask number is either between 0 and 7 (inclusive) to force that
     /// mask, or `None` to automatically choose an appropriate mask (which may be slow).
     ///
     /// This function allows the user to create a custom sequence of segments that switches
     /// between modes (such as alphanumeric and byte) to encode text in less space.
-    /// This is a mid-level API; the high-level API is `encode_text()` and `encode_binary()`.
+    /// This is a mid-level API; the high-level API is [`encode_text()`](QrCode::encode_text) and [`encode_binary()`](QrCode::encode_binary).
     ///
     /// Returns a wrapped `QrCode` if successful, or `Err` if the data is too
     /// long to fit in any version in the given range at the given ECC level.
@@ -200,7 +203,7 @@ impl QrCode {
     /// error correction level, data codeword bytes, and mask number.
     ///
     /// This is a low-level API that most users should not use directly.
-    /// A mid-level API is the `encode_segments()` function.
+    /// A mid-level API is the [`encode_segments()`](QrCode::encode_segments) function.
     pub fn encode_codewords(ver: Version, ecl: ErrCorrectLvl, data_codewords: &[u8], mut msk: Option<Mask>) -> Self {
         // Initialize fields
         let size = usize::from(ver) * 4 + 17;
@@ -501,7 +504,7 @@ impl QrCode {
     /// The function modules must be marked and the codeword bits must be drawn
     /// before masking.
     ///
-    /// Due to the arithmetic of XOR, calling `apply_mask()` with
+    /// Due to the arithmetic of XOR, calling [`apply_mask()`](QrCode::apply_mask) with
     /// the same mask value a second time will undo the mask. A final well-formed
     /// QR Code needs exactly one (not zero, two, etc.) mask applied.
     fn apply_mask(&mut self, mask: Mask) {
@@ -610,7 +613,7 @@ impl QrCode {
     /*---- Private helper functions ----*/
 
     /// Returns an ascending list of positions of alignment patterns for this version number.
-    /// Each position is in the range [0,177), and are used on both the x and y axes.
+    /// Each position is in the range `[0,177)`, and are used on both the x and y axes.
     /// This could be implemented as lookup table of 40 variable-length lists of unsigned bytes.
     fn get_alignment_pattern_positions(&self) -> Vec<i32> {
         let ver = i32::from(self.version);
@@ -628,7 +631,7 @@ impl QrCode {
 
     /// Returns the number of data bits that can be stored in a QR Code of the given version number, after
     /// all function modules are excluded. This includes remainder bits, so it might not be a multiple of 8.
-    /// The result is in the range [208, 29648]. This could be implemented as a 40-entry lookup table.
+    /// The result is in the range `[208, 29648]`. This could be implemented as a 40-entry lookup table.
     fn get_num_raw_data_modules(version: Version) -> usize {
         let ver = usize::from(version);
         let mut result: usize = (16 * ver + 128) * ver + 64;
@@ -649,7 +652,7 @@ impl QrCode {
     pub(crate) fn get_num_data_codewords(ver: Version, ecl: ErrCorrectLvl) -> usize {
         QrCode::get_num_raw_data_modules(ver) / 8
             - QrCode::table_get(&ECC_CODEWORDS_PER_BLOCK, ver, ecl)
-            * QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl)
+                * QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl)
     }
 
     /// Returns an entry from the given table based on the given values.
@@ -711,44 +714,22 @@ impl QrCode {
     }
 }
 
+#[rustfmt::skip]
 static ECC_CODEWORDS_PER_BLOCK: [[i8; 41]; 4] = [
-    // Version: (note that index 0 is for padding, and is set to an illegal value)
+    // Version: (index 0 is for padding, and is set to an illegal value)
     //0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40    Error correction level
-    [
-        -1, 7, 10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24, 28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-    ], // Low
-    [
-        -1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-    ], // Medium
-    [
-        -1, 13, 22, 18, 26, 18, 24, 18, 22, 20, 24, 28, 26, 24, 20, 30, 24, 28, 28, 26, 30, 28, 30, 30, 30, 30, 28, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-    ], // Quartile
-    [
-        -1, 17, 28, 22, 16, 22, 28, 26, 26, 24, 28, 24, 28, 22, 24, 24, 30, 28, 28, 26, 28, 30, 24, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-    ], // High
+    [-1, 7,  10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24, 28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30],  // Low
+    [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28], // Medium
+    [-1, 13, 22, 18, 26, 18, 24, 18, 22, 20, 24, 28, 26, 24, 20, 30, 24, 28, 28, 26, 30, 28, 30, 30, 30, 30, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30], // Quartile
+    [-1, 17, 28, 22, 16, 22, 28, 26, 26, 24, 28, 24, 28, 22, 24, 24, 30, 28, 28, 26, 28, 30, 24, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30], // High
 ];
 
+#[rustfmt::skip]
 static NUM_ERROR_CORRECTION_BLOCKS: [[i8; 41]; 4] = [
-    // Version: (note that index 0 is for padding, and is set to an illegal value)
-    //0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40    Error correction level
-    [
-        -1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 7, 8, 8, 9, 9, 10, 12, 12, 12, 13, 14, 15, 16, 17,
-        18, 19, 19, 20, 21, 22, 24, 25,
-    ], // Low
-    [
-        -1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29,
-        31, 33, 35, 37, 38, 40, 43, 45, 47, 49,
-    ], // Medium
-    [
-        -1, 1, 1, 2, 2, 4, 4, 6, 6, 8, 8, 8, 10, 12, 16, 12, 17, 16, 18, 21, 20, 23, 23, 25, 27, 29, 34, 34, 35, 38,
-        40, 43, 45, 48, 51, 53, 56, 59, 62, 65, 68,
-    ], // Quartile
-    [
-        -1, 1, 1, 2, 4, 4, 4, 5, 6, 8, 8, 11, 11, 16, 16, 18, 16, 19, 21, 25, 25, 25, 34, 30, 32, 35, 37, 40, 42, 45,
-        48, 51, 54, 57, 60, 63, 66, 70, 74, 77, 81,
-    ], // High
+    // Version: (index 0 is for padding, and is set to an illegal value)
+    //0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40    Error correction level
+    [-1, 1, 1, 1, 1, 1, 2, 2, 2, 2,  4,  4,  4,  4,  4,  6,  6,  6,  6,  7,  8,  8,  9,  9, 10, 12, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 20, 21, 22, 24, 25], // Low
+    [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5,  5,  5,  8,  9,  9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49], // Medium
+    [-1, 1, 1, 2, 2, 4, 4, 6, 6, 8,  8,  8, 10, 12, 16, 12, 17, 16, 18, 21, 20, 23, 23, 25, 27, 29, 34, 34, 35, 38, 40, 43, 45, 48, 51, 53, 56, 59, 62, 65, 68], // Quartile
+    [-1, 1, 1, 2, 4, 4, 4, 5, 6, 8,  8, 11, 11, 16, 16, 18, 16, 19, 21, 25, 25, 25, 34, 30, 32, 35, 37, 40, 42, 45, 48, 51, 54, 57, 60, 63, 66, 70, 74, 77, 81], // High
 ];
