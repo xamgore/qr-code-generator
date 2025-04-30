@@ -10,6 +10,9 @@ fn main() {
     do_variety_demo();
     do_segment_demo();
     do_mask_demo();
+    dump_golden_ratio_svg();
+    dump_kanji_svg();
+    dump_privet_svg();
 }
 
 /*---- Demo suite ----*/
@@ -220,4 +223,36 @@ fn print_qr(qr: &QrCode) {
         println!();
     }
     println!();
+}
+
+fn dump_golden_ratio_svg() {
+    let text = "Golden ratio φ = 1.6180339887498948482045868343656381177203091798057628621354486227052604628189024497072072041893911374......";
+    let segments = QrSegment::make_compact_segments(text, ErrCorrectLvl::Low, Version::MIN, Version::MAX).unwrap();
+    dbg!(&segments);
+    let qr = QrCode::encode_segments(&segments, ErrCorrectLvl::Low).unwrap();
+    std::fs::write("examples/golden_ratio.svg", qr.to_svg(4).to_string()).unwrap();
+}
+
+fn dump_kanji_svg() {
+    let text = "「魔法少女まどか☆マギカ」って、　ИАИ　ｄｅｓｕ　κα？";
+    let segments = QrSegment::make_compact_segments(text, ErrCorrectLvl::Low, Version::MIN, Version::MAX).unwrap();
+    dbg!(&segments);
+    dbg!(segments.iter().map(|s| s.data.len()).sum::<usize>());
+    let qr = QrCode::encode_segments(&segments, ErrCorrectLvl::Low).unwrap();
+    std::fs::write("examples/kanji.svg", qr.to_svg(4).to_string()).unwrap();
+
+    let segments = QrSegment::make_bytes(text.as_bytes());
+    dbg!(segments.data.len());
+}
+
+fn dump_privet_svg() {
+    let text = "привет";
+    let segments = QrSegment::make_compact_segments(text, ErrCorrectLvl::Low, Version::MIN, Version::MAX).unwrap();
+    dbg!(&segments);
+    dbg!(segments.iter().map(|s| s.data.len()).sum::<usize>());
+    let qr = QrCode::encode_segments(&segments, ErrCorrectLvl::Low).unwrap();
+    std::fs::write("examples/privet.svg", qr.to_svg(4).to_string()).unwrap();
+
+    let segments = QrSegment::make_bytes(text.as_bytes());
+    dbg!(segments.data.len());
 }
