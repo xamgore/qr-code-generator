@@ -134,7 +134,7 @@ impl QrCode {
             let data_capacity_bits: usize = QrCode::get_num_data_codewords(version, ecl) * 8; // Number of data bits available
             let data_used: Option<usize> = QrSegment::get_total_bits(segments, version);
 
-            if data_used.map_or(false, |n| n <= data_capacity_bits) {
+            if data_used.is_some_and(|n| n <= data_capacity_bits) {
                 break data_used.unwrap(); // This version number is found to be suitable
             } else if version >= max_version {
                 // All versions in the range could not fit the given data
@@ -646,10 +646,10 @@ impl QrCode {
     /// Returns the number of 8-bit data (i.e. not error correction) codewords contained in any
     /// QR Code of the given version number and error correction level, with remainder bits discarded.
     /// This stateless pure function could be implemented as a (40*4)-cell lookup table.
-    fn get_num_data_codewords(ver: Version, ecl: ErrCorrectLvl) -> usize {
+    pub(crate) fn get_num_data_codewords(ver: Version, ecl: ErrCorrectLvl) -> usize {
         QrCode::get_num_raw_data_modules(ver) / 8
             - QrCode::table_get(&ECC_CODEWORDS_PER_BLOCK, ver, ecl)
-                * QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl)
+            * QrCode::table_get(&NUM_ERROR_CORRECTION_BLOCKS, ver, ecl)
     }
 
     /// Returns an entry from the given table based on the given values.

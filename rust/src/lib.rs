@@ -64,6 +64,7 @@ mod bit_buffer;
 mod correction_code;
 mod error;
 mod finder_penalty;
+mod helpers;
 mod mask;
 mod qr_code;
 mod qr_segment;

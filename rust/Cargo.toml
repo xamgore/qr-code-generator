@@ -14,3 +14,8 @@ exclude = ["examples/*"]
 
 [dependencies]
 image = { version = "0.25", default-features = false, optional = true }
+encoding-next-index-japanese = { version = "1.20180106.0", default-features = false, optional = true }
+
+[lints]
+clippy.bool_assert_comparison = "allow"
+clippy.items_after_test_module = "allow"

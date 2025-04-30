@@ -1,10 +1,14 @@
 use QrSegmentMode::*;
 
 use crate::bit_buffer::BitBuffer;
+use crate::correction_code::ErrCorrectLvl;
+use crate::error::DataTooLong;
+use crate::helpers::{alphanumeric_to_idx, jis_to_index, unicode_to_jis};
+use crate::prelude::QrCode;
 use crate::version::Version;
 
 /// Describes how a segment's data bits are interpreted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum QrSegmentMode {
     Numeric,
     Alphanumeric,
@@ -120,6 +124,24 @@ impl QrSegment {
         QrSegment::new(Alphanumeric, text.len(), bb)
     }
 
+    /// Returns a segment representing the specified text string encoded in kanji mode.
+    ///
+    /// The set of encodable characters: kanji used in Japan, hiragana, katakana,
+    /// East Asian punctuation, full-width ASCII, Greek, Cyrillic.
+    ///
+    /// Non-encodable characters include: ordinary ASCII, half-width katakana, more extensive
+    /// Chinese hanzi.
+    pub fn make_kanji(text: &str) -> Self {
+        let num_chars = text.chars().count();
+        let capacity = num_chars * 13; // 13 bits per Shift JIS char
+        let mut bb = BitBuffer::from(Vec::with_capacity(capacity));
+        text.chars()
+            .filter_map(unicode_to_jis)
+            .filter_map(jis_to_index)
+            .for_each(|ch| bb.append_bits(ch as u32, 13));
+        QrSegment::new(Kanji, num_chars, bb)
+    }
+
     /// Returns a list of zero or more segments to represent the given Unicode text string.
     ///
     /// The result may use various segment modes and switch
@@ -135,6 +157,38 @@ impl QrSegment {
             } else {
                 QrSegment::make_bytes(text.as_bytes())
             }]
+        }
+    }
+
+    /// Returns a list of segments to represent the given text, where the overall bit length is minimal.
+    pub fn make_compact_segments(
+        text: &str,
+        err_correct_lvl: ErrCorrectLvl,
+        min_version: Version,
+        max_version: Version,
+    ) -> Result<Vec<Self>, DataTooLong> {
+        let mut segments = Vec::new();
+        let mut version = min_version;
+
+        loop {
+            if version == min_version || matches!(*version, 10 | 27) {
+                segments = make_compact_segments(text, version).unwrap_or_default();
+            }
+
+            let data_capacity_bits: usize = QrCode::get_num_data_codewords(version, err_correct_lvl) * 8; // Number of data bits available
+            let data_used: Option<usize> = QrSegment::get_total_bits(&segments, version);
+
+            if data_used.is_some_and(|n| n <= data_capacity_bits) {
+                return Ok(segments); // This version number is found to be suitable
+            } else if version >= max_version {
+                // All versions in the range could not fit the given data
+                return Err(match data_used {
+                    None => DataTooLong::SegmentTooLong,
+                    Some(n) => DataTooLong::DataOverCapacity(n, data_capacity_bits),
+                });
+            } else {
+                version += 1;
+            }
         }
     }
 
@@ -215,4 +269,105 @@ impl QrSegmentMode {
         };
         widths[(usize::from(ver) + 7) / 17]
     }
+}
+
+/// Returns a new list of segments that is optimal for the given text at the given version number.
+fn make_compact_segments(text: &str, ver: Version) -> Result<Vec<QrSegment>, DataTooLong> {
+    use QrSegmentMode::*;
+
+    let text_size = text.chars().count();
+    match text_size {
+        0 => return Ok(Vec::new()),
+        // upper bound is the number of characters that fit in QR Code version 40, low error correction, numeric mode
+        // TODO: it's actually DataOverCapacity
+        7090.. => return Err(DataTooLong::SegmentTooLong),
+        _ => {}
+    }
+
+    const NUM_MODES: usize = 4;
+    let mode_types: [QrSegmentMode; NUM_MODES] = [Byte, Alphanumeric, Numeric, Kanji]; // do not modify
+    let head_costs = mode_types.map(|mode| 4 + 6 * mode.num_char_count_bits(ver) as usize);
+
+    let mut char_modes: Vec<[Option<QrSegmentMode>; NUM_MODES]> = vec![[None; NUM_MODES]; text_size];
+    let mut prev_costs = head_costs;
+
+    for (i, c) in text.chars().enumerate() {
+        let mut cur_costs = [0; NUM_MODES];
+
+        // always extend a byte mode segment
+        cur_costs[0] = prev_costs[0] + c.len_utf8() * 8 * 6;
+        char_modes[i][0] = Some(mode_types[0]);
+
+        // extend a segment if possible
+        if QrSegment::ALPHANUMERIC_CHARSET.contains(c) {
+            cur_costs[1] = prev_costs[1] + 33; // 5.5 bits per alphanumeric char
+            char_modes[i][1] = Some(mode_types[1]);
+        }
+        if c.is_ascii_digit() {
+            cur_costs[2] = prev_costs[2] + 20; // 3.33 bits per digit
+            char_modes[i][2] = Some(mode_types[2]);
+        }
+        if unicode_to_jis(c).and_then(jis_to_index).is_some() {
+            cur_costs[3] = prev_costs[3] + 78; // 13 bits per Shift JIS char
+            char_modes[i][3] = Some(mode_types[3]);
+        }
+
+        // start new segment at the end to switch modes
+        for j in 0..NUM_MODES {
+            for k in 0..NUM_MODES {
+                let new_cost = cur_costs[k].div_ceil(6) * 6 + head_costs[j];
+                if char_modes[i][k].is_some() && (char_modes[i][j].is_none() || new_cost < cur_costs[j]) {
+                    cur_costs[j] = new_cost;
+                    char_modes[i][j] = Some(mode_types[k]);
+                }
+            }
+        }
+
+        // a non-tight upper bound is when each of 7089 characters switches to
+        // byte mode (4-bit header + 16-bit count) and requires 4 bytes in UTF-8
+        debug_assert!(cur_costs.iter().all(|&cost| cost <= (4 + 16 + 32) * 6 * 7089));
+
+        prev_costs = cur_costs;
+    }
+
+    // find optimal ending mode
+    let (_, mut cur_mode) = std::iter::zip(prev_costs, mode_types).min().unwrap();
+
+    // get optimal mode for each code point by tracing backwards
+    let mut optimal_modes = vec![Eci; text_size];
+
+    for (i, res) in optimal_modes.iter_mut().enumerate().rev() {
+        for j in 0..NUM_MODES {
+            if mode_types[j] == cur_mode {
+                cur_mode = char_modes[i][j].unwrap();
+                *res = cur_mode;
+                break;
+            }
+        }
+    }
+
+    merge_segments(text, optimal_modes)
+}
+
+fn merge_segments(text: &str, modes: Vec<QrSegmentMode>) -> Result<Vec<QrSegment>, DataTooLong> {
+    let mut list = Vec::new();
+    let mut offset = 0;
+
+    for chunk in modes.chunk_by(|x, y| x == y) {
+        let bytes: usize = text[offset..].chars().take(chunk.len()).map(|ch| ch.len_utf8()).sum();
+        let text = &text[offset..(offset + bytes)];
+        offset += bytes;
+
+        let segment = match chunk[0] {
+            Numeric => QrSegment::make_numeric(text),
+            Alphanumeric => QrSegment::make_alphanumeric(text),
+            Byte => QrSegment::make_bytes(text.as_bytes()),
+            Kanji => QrSegment::make_kanji(text),
+            Eci => unreachable!(),
+        };
+
+        list.push(segment)
+    }
+
+    Ok(list)
 }
