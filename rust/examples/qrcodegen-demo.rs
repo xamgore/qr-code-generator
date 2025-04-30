@@ -28,7 +28,11 @@ fn do_basic_demo() {
 /// Creates a variety of QR Codes that exercise different features of the library, and prints each one to the console.
 fn do_variety_demo() {
     // Numeric mode encoding (3.33 bits per digit)
-    let qr = QrCode::encode_text("314159265358979323846264338327950288419716939937510", ErrCorrectLvl::Medium).unwrap();
+    let qr = QrCode::encode_text(
+        "314159265358979323846264338327950288419716939937510",
+        ErrCorrectLvl::Medium,
+    )
+    .unwrap();
     print_qr(&qr);
 
     // Alphanumeric mode encoding (5.5 bits per character)
@@ -112,8 +116,8 @@ fn do_segment_demo() {
 fn do_mask_demo() {
     // Project Nayuki URL
     let segments = QrSegment::make_segments("https://www.nayuki.io/");
-    let qr =
-        QrCode::encode_segments_advanced(&segments, ErrCorrectLvl::High, Version::MIN, Version::MAX, None, true).unwrap(); // Automatic mask
+    let qr = QrCode::encode_segments_advanced(&segments, ErrCorrectLvl::High, Version::MIN, Version::MAX, None, true)
+        .unwrap(); // Automatic mask
     print_qr(&qr);
     let qr = QrCode::encode_segments_advanced(
         &segments,
