@@ -3,7 +3,7 @@ use QrSegmentMode::*;
 use crate::bit_buffer::BitBuffer;
 use crate::correction_code::ErrCorrectLvl;
 use crate::error::DataTooLong;
-use crate::helpers::{alphanumeric_to_idx, jis_to_index, unicode_to_jis};
+use crate::helpers::{alphanumeric_to_idx, unicode_kanji_to_idx};
 use crate::prelude::QrCode;
 use crate::version::Version;
 
@@ -124,10 +124,12 @@ impl QrSegment {
         QrSegment::new(Alphanumeric, text.len(), bb)
     }
 
+    #[cfg(feature = "encoding-next-index-japanese")]
     /// Returns a segment representing the specified text string encoded in kanji mode.
     ///
     /// The set of encodable characters: kanji used in Japan, hiragana, katakana,
-    /// East Asian punctuation, full-width ASCII, Greek, Cyrillic.
+    /// East Asian punctuation, [full-width ASCII](https://unicode.org/charts/nameslist/n_FF00.html),
+    /// Greek, Cyrillic.
     ///
     /// Non-encodable characters include: ordinary ASCII, half-width katakana, more extensive
     /// Chinese hanzi.
@@ -136,8 +138,7 @@ impl QrSegment {
         let capacity = num_chars * 13; // 13 bits per Shift JIS char
         let mut bb = BitBuffer::from(Vec::with_capacity(capacity));
         text.chars()
-            .filter_map(unicode_to_jis)
-            .filter_map(jis_to_index)
+            .filter_map(unicode_kanji_to_idx)
             .for_each(|ch| bb.append_bits(ch as u32, 13));
         QrSegment::new(Kanji, num_chars, bb)
     }
@@ -307,7 +308,7 @@ fn make_compact_segments(text: &str, ver: Version) -> Result<Vec<QrSegment>, Dat
             cur_costs[2] = prev_costs[2] + 20; // 3.33 bits per digit
             char_modes[i][2] = Some(mode_types[2]);
         }
-        if unicode_to_jis(c).and_then(jis_to_index).is_some() {
+        if unicode_kanji_to_idx(c).is_some() {
             cur_costs[3] = prev_costs[3] + 78; // 13 bits per Shift JIS char
             char_modes[i][3] = Some(mode_types[3]);
         }
@@ -362,8 +363,9 @@ fn merge_segments(text: &str, modes: Vec<QrSegmentMode>) -> Result<Vec<QrSegment
             Numeric => QrSegment::make_numeric(text),
             Alphanumeric => QrSegment::make_alphanumeric(text),
             Byte => QrSegment::make_bytes(text.as_bytes()),
+            #[cfg(feature = "encoding-next-index-japanese")]
             Kanji => QrSegment::make_kanji(text),
-            Eci => unreachable!(),
+            _ => unreachable!(),
         };
 
         list.push(segment)

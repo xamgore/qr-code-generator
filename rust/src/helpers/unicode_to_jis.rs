@@ -32,18 +32,6 @@ pub fn unicode_to_jis(ch: char) -> Option<u16> {
     })
 }
 
-/// In the [Shift JIS](https://en.wikipedia.org/wiki/Shift_JIS) encoding, Kanji characters
-/// are represented by a two byte combination. Only a subset of them gets compacted
-/// into 13-bit binary codewords.
-pub fn jis_to_index(ch: u16) -> Option<u16> {
-    let bytes = match ch {
-        c @ 0x8140..=0x9FFC => c - 0x8140,
-        c @ 0xE040..=0xEBBF => c - 0xC140,
-        _ => return None, // other modes must be used
-    };
-    Some((bytes >> 8) * 0xc0 + (bytes & 0xff))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,11 +40,5 @@ mod tests {
     fn test_unicode_to_jis() {
         assert_eq!(unicode_to_jis('点'), Some(0x935F));
         assert_eq!(unicode_to_jis('茗'), Some(0xE4AA));
-    }
-
-    #[test]
-    fn test_unicode_kanji_to_jis() {
-        assert_eq!(jis_to_index(0x935F), Some(0xD9F));
-        assert_eq!(jis_to_index(0xE4AA), Some(0x1AAA));
     }
 }
